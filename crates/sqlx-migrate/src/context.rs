@@ -103,7 +103,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         parameters: &'e [<Self::Database as Database>::TypeInfo],
     ) -> futures_core::future::BoxFuture<
         'e,
-        Result<<Self::Database as sqlx::database::HasStatement<'q>>::Statement, sqlx::Error>,
+        Result<<Self::Database as Database>::Statement<'q>, sqlx::Error>,
     >
     where
         'c: 'e,
@@ -222,7 +222,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         query: &'q str,
     ) -> futures_core::future::BoxFuture<
         'e,
-        Result<<Self::Database as sqlx::database::HasStatement<'q>>::Statement, sqlx::Error>,
+        Result<<Self::Database as sqlx::database::Database>::Statement<'q>, sqlx::Error>,
     >
     where
         'c: 'e,
@@ -290,7 +290,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         parameters: &'e [<Self::Database as Database>::TypeInfo],
     ) -> futures_core::future::BoxFuture<
         'e,
-        Result<<Self::Database as sqlx::database::HasStatement<'q>>::Statement, sqlx::Error>,
+        Result<<Self::Database as sqlx::database::Database>::Statement<'q>, sqlx::Error>,
     >
     where
         'c: 'e,
@@ -409,7 +409,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         query: &'q str,
     ) -> futures_core::future::BoxFuture<
         'e,
-        Result<<Self::Database as sqlx::database::HasStatement<'q>>::Statement, sqlx::Error>,
+        Result<<Self::Database as sqlx::database::Database>::Statement<'q>, sqlx::Error>,
     >
     where
         'c: 'e,

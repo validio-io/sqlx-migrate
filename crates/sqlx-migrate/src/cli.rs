@@ -243,7 +243,7 @@ where
     for<'a> &'a mut Db::Connection: Executor<'a>,
 {
     match migrator.verify().await {
-        Ok(_) => {
+        Ok(()) => {
             tracing::info!("No issues found");
         }
         Err(err) => {
@@ -564,7 +564,7 @@ where
         ]));
     }
 
-    println!("{}", table);
+    println!("{table}");
 
     if !all_valid {
         process::exit(1);
