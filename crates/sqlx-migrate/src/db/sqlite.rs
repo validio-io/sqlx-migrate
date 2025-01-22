@@ -9,16 +9,15 @@ use super::AppliedMigration;
 impl super::Migrations for sqlx::SqliteConnection {
     async fn ensure_migrations_table(&mut self, table_name: &str) -> Result<(), sqlx::Error> {
         query(&format!(
-            r#"
-                CREATE TABLE IF NOT EXISTS {} (
+            r"
+                CREATE TABLE IF NOT EXISTS {table_name} (
                     version BIGINT PRIMARY KEY,
                     name TEXT NOT NULL,
                     applied_on INTEGER NOT NULL,
                     checksum BLOB NOT NULL,
                     execution_time BIGINT NOT NULL
                 );
-                "#,
-            table_name
+                "
         ))
         .execute(self)
         .await?;
@@ -39,17 +38,16 @@ impl super::Migrations for sqlx::SqliteConnection {
         table_name: &str,
     ) -> Result<Vec<super::AppliedMigration<'static>>, sqlx::Error> {
         let rows: Vec<(i64, String, Vec<u8>, i64)> = query_as(&format!(
-            r#"
+            r"
             SELECT
                 version,
                 name,
                 checksum,
                 execution_time
             FROM
-                {}
+                {table_name}
             ORDER BY version
-            "#,
-            table_name
+            "
         ))
         .fetch_all(self)
         .await?;
@@ -71,11 +69,10 @@ impl super::Migrations for sqlx::SqliteConnection {
         migration: super::AppliedMigration<'static>,
     ) -> Result<(), sqlx::Error> {
         query(&format!(
-            r#"
-                INSERT INTO {} ( version, name, checksum, execution_time, applied_on )
+            r"
+                INSERT INTO {table_name} ( version, name, checksum, execution_time, applied_on )
                 VALUES ( $1, $2, $3, $4, $5 )
-            "#,
-            table_name
+            "
         ))
         .bind(migration.version as i64)
         .bind(&*migration.name.clone())
@@ -93,7 +90,7 @@ impl super::Migrations for sqlx::SqliteConnection {
         table_name: &str,
         version: u64,
     ) -> Result<(), sqlx::Error> {
-        query(&format!(r#"DELETE FROM {} WHERE version = $1"#, table_name))
+        query(&format!(r"DELETE FROM {table_name} WHERE version = $1"))
             .bind(version as i64)
             .execute(self)
             .await?;
@@ -102,7 +99,7 @@ impl super::Migrations for sqlx::SqliteConnection {
     }
 
     async fn clear_migrations(&mut self, table_name: &str) -> Result<(), sqlx::Error> {
-        query(&format!("TRUNCATE {}", table_name))
+        query(&format!("TRUNCATE {table_name}"))
             .execute(self)
             .await?;
         Ok(())

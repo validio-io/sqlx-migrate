@@ -51,7 +51,7 @@ where
 impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     type Database = sqlx::Postgres;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::stream::BoxStream<
@@ -66,7 +66,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -77,7 +77,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         self.conn.borrow_mut().fetch_many(query)
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<
@@ -86,7 +86,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -123,7 +123,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         self.conn.borrow_mut().describe(sql)
     }
 
-    fn execute<'e, 'q: 'e, E: 'q>(
+    fn execute<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<
@@ -132,7 +132,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -143,7 +143,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         self.conn.borrow_mut().execute(query)
     }
 
-    fn execute_many<'e, 'q: 'e, E: 'q>(
+    fn execute_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::stream::BoxStream<
@@ -152,7 +152,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -163,13 +163,13 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         self.conn.borrow_mut().execute_many(query)
     }
 
-    fn fetch<'e, 'q: 'e, E: 'q>(
+    fn fetch<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::stream::BoxStream<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -180,7 +180,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         self.conn.borrow_mut().fetch(query)
     }
 
-    fn fetch_all<'e, 'q: 'e, E: 'q>(
+    fn fetch_all<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<
@@ -189,7 +189,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -200,13 +200,13 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
         self.conn.borrow_mut().fetch_all(query)
     }
 
-    fn fetch_one<'e, 'q: 'e, E: 'q>(
+    fn fetch_one<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -238,7 +238,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
 impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     type Database = sqlx::Sqlite;
 
-    fn fetch_many<'e, 'q: 'e, E: 'q>(
+    fn fetch_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::stream::BoxStream<
@@ -253,7 +253,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -264,7 +264,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         self.conn.borrow_mut().fetch_many(query)
     }
 
-    fn fetch_optional<'e, 'q: 'e, E: 'q>(
+    fn fetch_optional<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<
@@ -273,7 +273,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -310,7 +310,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         self.conn.borrow_mut().describe(sql)
     }
 
-    fn execute<'e, 'q: 'e, E: 'q>(
+    fn execute<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<
@@ -319,7 +319,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -330,7 +330,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         self.conn.borrow_mut().execute(query)
     }
 
-    fn execute_many<'e, 'q: 'e, E: 'q>(
+    fn execute_many<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::stream::BoxStream<
@@ -339,7 +339,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -350,13 +350,13 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         self.conn.borrow_mut().execute_many(query)
     }
 
-    fn fetch<'e, 'q: 'e, E: 'q>(
+    fn fetch<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::stream::BoxStream<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -367,7 +367,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         self.conn.borrow_mut().fetch(query)
     }
 
-    fn fetch_all<'e, 'q: 'e, E: 'q>(
+    fn fetch_all<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<
@@ -376,7 +376,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
@@ -387,13 +387,13 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
         self.conn.borrow_mut().fetch_all(query)
     }
 
-    fn fetch_one<'e, 'q: 'e, E: 'q>(
+    fn fetch_one<'e, 'q: 'e, E>(
         self,
         query: E,
     ) -> futures_core::future::BoxFuture<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database>,
+        E: sqlx::Execute<'q, Self::Database> + 'q,
     {
         self.hasher.update(query.sql());
 
