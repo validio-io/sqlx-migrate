@@ -286,8 +286,8 @@ fn add(
         if let Err(error) = fs::write(
             migrations_path.join(&up_filename),
             format!(
-                r#"-- Migration SQL for {name}
-"#,
+                r"-- Migration SQL for {name}
+",
             ),
         ) {
             tracing::error!(error = %error, path = ?migrations_path.join(&up_filename), "failed to write file");
@@ -299,8 +299,8 @@ fn add(
             if let Err(error) = fs::write(
                 migrations_path.join(&down_filename),
                 format!(
-                    r#"-- Revert SQL for {name}
-"#,
+                    r"-- Revert SQL for {name}
+",
                 ),
             ) {
                 tracing::error!(error = %error, path = ?migrations_path.join(&down_filename), "failed to write file");
@@ -317,7 +317,7 @@ fn add(
         if let Err(error) = fs::write(
             migrations_path.join(&up_filename),
             format!(
-                r#"use sqlx::{sqlx_type};
+                r"use sqlx::{sqlx_type};
 use sqlx_migrate::prelude::*;
 
 /// Executes migration `{name}` in the given migration context.
@@ -328,7 +328,7 @@ pub async fn {name}(ctx: &mut MigrationContext<{sqlx_type}>) -> Result<(), Migra
     // write your migration operations here
     todo!()
 }}
-"#,
+",
             ),
         ) {
             tracing::error!(error = %error, path = ?migrations_path.join(&up_filename), "failed to write file");
@@ -341,7 +341,7 @@ pub async fn {name}(ctx: &mut MigrationContext<{sqlx_type}>) -> Result<(), Migra
             if let Err(error) = fs::write(
                 migrations_path.join(&down_filename),
                 format!(
-                    r#"use sqlx::{sqlx_type};
+                    r"use sqlx::{sqlx_type};
 use sqlx_migrate::prelude::*;
 
 /// Reverts migration `{name}` in the given migration context.
@@ -352,7 +352,7 @@ pub async fn revert_{name}(ctx: &mut MigrationContext<{sqlx_type}>) -> Result<()
     // write your revert operations here
     todo!()
 }}
-"#,
+",
                 ),
             ) {
                 tracing::error!(error = %error, path = ?migrations_path.join(&down_filename), "failed to write file");

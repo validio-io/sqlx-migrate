@@ -243,9 +243,9 @@ where
 
         let mut conn = Db::Connection::connect_with(&opts).await?;
         conn.execute(
-            r#"--sql
+            r"--sql
             SET client_min_messages TO WARNING;
-            "#,
+            ",
         )
         .await?;
 
@@ -268,9 +268,9 @@ where
     ) -> Result<Self, sqlx::Error> {
         let mut conn = Db::Connection::connect_with(options).await?;
         conn.execute(
-            r#"--sql
+            r"--sql
             SET client_min_messages TO WARNING;
-            "#,
+            ",
         )
         .await?;
 
@@ -293,9 +293,9 @@ where
     pub async fn connect_with_pool(pool: &Pool<Db>) -> Result<Self, sqlx::Error> {
         let mut conn = pool.acquire().await?;
         conn.execute(
-            r#"--sql
+            r"--sql
             SET client_min_messages TO WARNING;
-            "#,
+            ",
         )
         .await?;
 
@@ -386,13 +386,25 @@ where
                 continue;
             }
 
-            let start = Instant::now();
+            let (start, interval) = (Instant::now(), tokio::time::Duration::from_secs(60));
 
-            tracing::info!(
-                version = mig_version,
-                name = %mig.name,
-                "applying migration"
-            );
+            tracing::info!(version = mig_version, name = %mig.name, "applying migration");
+
+            // Start a timer that will log warnings if the migration takes longer than 60 seconds.
+            let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(());
+            let mig_name = mig.name.clone();
+            tokio::spawn(async move {
+                let mut timer = tokio::time::interval_at((start + interval).into(), interval);
+                let start = std::time::Instant::now();
+                loop {
+                    tokio::select! {
+                        _ = timer.tick() => {
+                            tracing::warn!("{} - migration has been running for over {} seconds", mig_name, start.elapsed().as_secs());
+                        }
+                        _ = shutdown_rx.changed() => return,
+                    }
+                }
+            });
 
             let hasher = Sha256::new();
 
@@ -431,6 +443,7 @@ where
                 })?;
 
             let execution_time = start.elapsed();
+            let _ = shutdown_tx.send(());
 
             if self.options.verify_checksums {
                 if let Some(db_mig) = db_migrations.get(idx) {
@@ -761,7 +774,7 @@ where
                     reversible: local.is_reversible(),
                     applied: Some(db),
                     missing_local: false,
-                    checksum_ok: checksums.get(idx).map_or(true, Result::is_ok),
+                    checksum_ok: checksums.get(idx).is_none_or(Result::is_ok),
                 }),
                 EitherOrBoth::Left(local) => status.push(MigrationStatus {
                     version,
@@ -769,7 +782,7 @@ where
                     reversible: local.is_reversible(),
                     applied: None,
                     missing_local: false,
-                    checksum_ok: checksums.get(idx).map_or(true, Result::is_ok),
+                    checksum_ok: checksums.get(idx).is_none_or(Result::is_ok),
                 }),
                 EitherOrBoth::Right(r) => status.push(MigrationStatus {
                     version: r.version,
@@ -777,7 +790,7 @@ where
                     reversible: false,
                     applied: Some(r),
                     missing_local: true,
-                    checksum_ok: checksums.get(idx).map_or(true, Result::is_ok),
+                    checksum_ok: checksums.get(idx).is_none_or(Result::is_ok),
                 }),
             }
         }
