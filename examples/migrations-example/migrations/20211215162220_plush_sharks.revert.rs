@@ -1,5 +1,5 @@
 use barrel::{backend::Pg, types};
-use sqlx::{query, query_as, Executor, Postgres};
+use sqlx::{query, query_as, AssertSqlSafe, Executor, Postgres};
 use sqlx_migrate::prelude::*;
 
 /// Reverts migration `plush_sharks` in the given migration context.
@@ -14,7 +14,7 @@ pub async fn revert_plush_sharks(
         t.add_column("owns_plush_sharks", types::boolean().default(false));
     });
 
-    ctx.tx().execute(m.make::<Pg>().as_ref()).await?;
+    ctx.tx().execute(AssertSqlSafe(m.make::<Pg>())).await?;
 
     let mut users_with_sharks: Vec<i32> = query_as::<_, (i32,)>(
         r#"

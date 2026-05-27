@@ -17,8 +17,9 @@ anyhow = "1"
 async-trait = "0.1"
 crc = "3.0.0"
 futures-core = "0.3"
+futures-util = "0.3"
 humantime = "2.1.0"
-sqlx = { version = "0.8.1" }
+sqlx = { version = "0.9" }
 thiserror = "2"
 tracing = "0.1"
 itertools = "0.14.0"
@@ -51,7 +52,10 @@ state = "0.6.0"
 
 [dev-dependencies]
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros"] }
-sqlx = { version = "0.8.1", features = ["runtime-tokio-rustls"] }
+sqlx = { version = "0.9", features = [
+    "runtime-tokio",
+    "tls-native-tls"
+] }
 
 [features]
 default = ["dep:tokio"]
@@ -78,7 +82,7 @@ sqlite = ["sqlx/sqlite"]
 postgres = ["sqlx/postgres"]
 
 # Used for documentation generation purposes only.
-_docs = ["sqlx/runtime-tokio-rustls"]
+_docs = ["sqlx/runtime-tokio", "sqlx/tls-rustls"]
 
 [package.metadata.docs.rs]
 all-features = true

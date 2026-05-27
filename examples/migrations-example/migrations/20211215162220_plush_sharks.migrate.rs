@@ -2,7 +2,7 @@ use barrel::{
     backend::Pg,
     types::{self, ReferentialAction},
 };
-use sqlx::{query, query_as, Executor, Postgres};
+use sqlx::{query, query_as, AssertSqlSafe, Executor, Postgres};
 use sqlx_migrate::prelude::*;
 
 /// Executes migration `plush_sharks` in the given migration context.
@@ -44,7 +44,7 @@ pub async fn plush_sharks(ctx: &mut MigrationContext<Postgres>) -> Result<(), Mi
         t.drop_column("owns_plush_sharks");
     });
 
-    ctx.tx().execute(m.make::<Pg>().as_str()).await?;
+    ctx.tx().execute(AssertSqlSafe(m.make::<Pg>())).await?;
 
     for (user_id,) in users_with_sharks {
         // Every user gets a very own plush shark.
