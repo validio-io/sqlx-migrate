@@ -1,8 +1,14 @@
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use state::TypeMap;
-use std::{any::Any, borrow::BorrowMut, sync::Arc};
+use std::{any::Any, sync::Arc};
 
-use sqlx::{Database, Executor};
+use sqlx::Database;
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
+use sha2::Digest;
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
+use sqlx::{Execute, Executor, SqlStr};
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
+use std::borrow::BorrowMut;
 
 pub struct MigrationContext<Db>
 where
@@ -53,7 +59,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
 
     fn fetch_many<'e, 'q: 'e, E>(
         self,
-        query: E,
+        mut query: E,
     ) -> futures_core::stream::BoxStream<
         'e,
         Result<
@@ -66,169 +72,75 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Postgres> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
+        E: Execute<'q, Self::Database> + 'q,
     {
-        self.hasher.update(query.sql());
+        let arguments = match query.take_arguments() {
+            Ok(arguments) => arguments,
+            Err(error) => {
+                return Box::pin(futures_util::stream::once(async move {
+                    Err(sqlx::Error::Encode(error))
+                }))
+            }
+        };
+        let sql = query.sql();
+        self.hasher.update(sql.as_str());
 
         if self.hash_only {
             return self.conn.borrow_mut().fetch_many("");
         }
 
-        self.conn.borrow_mut().fetch_many(query)
+        self.conn.borrow_mut().fetch_many((sql, arguments))
     }
 
     fn fetch_optional<'e, 'q: 'e, E>(
         self,
-        query: E,
+        mut query: E,
     ) -> futures_core::future::BoxFuture<
         'e,
         Result<Option<<Self::Database as Database>::Row>, sqlx::Error>,
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
+        E: Execute<'q, Self::Database> + 'q,
     {
-        self.hasher.update(query.sql());
+        let arguments = match query.take_arguments() {
+            Ok(arguments) => arguments,
+            Err(error) => return Box::pin(async move { Err(sqlx::Error::Encode(error)) }),
+        };
+        let sql = query.sql();
+        self.hasher.update(sql.as_str());
 
         if self.hash_only {
             return Box::pin(async move { Ok(None) });
         }
 
-        self.conn.borrow_mut().fetch_optional(query)
+        self.conn.borrow_mut().fetch_optional((sql, arguments))
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e>(
         self,
-        sql: &'q str,
+        sql: SqlStr,
         parameters: &'e [<Self::Database as Database>::TypeInfo],
     ) -> futures_core::future::BoxFuture<
         'e,
-        Result<<Self::Database as Database>::Statement<'q>, sqlx::Error>,
+        Result<<Self::Database as Database>::Statement, sqlx::Error>,
     >
     where
         'c: 'e,
     {
-        self.hasher.update(sql);
+        self.hasher.update(sql.as_str());
         self.conn.borrow_mut().prepare_with(sql, parameters)
     }
 
-    fn describe<'e, 'q: 'e>(
+    fn describe<'e>(
         self,
-        sql: &'q str,
+        sql: SqlStr,
     ) -> futures_core::future::BoxFuture<'e, Result<sqlx::Describe<Self::Database>, sqlx::Error>>
     where
         'c: 'e,
     {
-        self.hasher.update(sql);
+        self.hasher.update(sql.as_str());
         self.conn.borrow_mut().describe(sql)
-    }
-
-    fn execute<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::future::BoxFuture<
-        'e,
-        Result<<Self::Database as Database>::QueryResult, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().execute("");
-        }
-
-        self.conn.borrow_mut().execute(query)
-    }
-
-    fn execute_many<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::stream::BoxStream<
-        'e,
-        Result<<Self::Database as Database>::QueryResult, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().execute_many("");
-        }
-
-        self.conn.borrow_mut().execute_many(query)
-    }
-
-    fn fetch<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::stream::BoxStream<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().fetch("");
-        }
-
-        self.conn.borrow_mut().fetch(query)
-    }
-
-    fn fetch_all<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::future::BoxFuture<
-        'e,
-        Result<Vec<<Self::Database as Database>::Row>, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().fetch_all("");
-        }
-
-        self.conn.borrow_mut().fetch_all(query)
-    }
-
-    fn fetch_one<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::future::BoxFuture<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().fetch_one("");
-        }
-
-        self.conn.borrow_mut().fetch_one(query)
-    }
-
-    fn prepare<'e, 'q: 'e>(
-        self,
-        query: &'q str,
-    ) -> futures_core::future::BoxFuture<
-        'e,
-        Result<<Self::Database as sqlx::database::Database>::Statement<'q>, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-    {
-        self.hasher.update(query);
-        self.conn.borrow_mut().prepare(query)
     }
 }
 
@@ -240,7 +152,7 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
 
     fn fetch_many<'e, 'q: 'e, E>(
         self,
-        query: E,
+        mut query: E,
     ) -> futures_core::stream::BoxStream<
         'e,
         Result<
@@ -253,168 +165,74 @@ impl<'c> Executor<'c> for &'c mut MigrationContext<sqlx::Sqlite> {
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
+        E: Execute<'q, Self::Database> + 'q,
     {
-        self.hasher.update(query.sql());
+        let arguments = match query.take_arguments() {
+            Ok(arguments) => arguments,
+            Err(error) => {
+                return Box::pin(futures_util::stream::once(async move {
+                    Err(sqlx::Error::Encode(error))
+                }))
+            }
+        };
+        let sql = query.sql();
+        self.hasher.update(sql.as_str());
 
         if self.hash_only {
             return self.conn.borrow_mut().fetch_many("");
         }
 
-        self.conn.borrow_mut().fetch_many(query)
+        self.conn.borrow_mut().fetch_many((sql, arguments))
     }
 
     fn fetch_optional<'e, 'q: 'e, E>(
         self,
-        query: E,
+        mut query: E,
     ) -> futures_core::future::BoxFuture<
         'e,
         Result<Option<<Self::Database as Database>::Row>, sqlx::Error>,
     >
     where
         'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
+        E: Execute<'q, Self::Database> + 'q,
     {
-        self.hasher.update(query.sql());
+        let arguments = match query.take_arguments() {
+            Ok(arguments) => arguments,
+            Err(error) => return Box::pin(async move { Err(sqlx::Error::Encode(error)) }),
+        };
+        let sql = query.sql();
+        self.hasher.update(sql.as_str());
 
         if self.hash_only {
             return Box::pin(async move { Ok(None) });
         }
 
-        self.conn.borrow_mut().fetch_optional(query)
+        self.conn.borrow_mut().fetch_optional((sql, arguments))
     }
 
-    fn prepare_with<'e, 'q: 'e>(
+    fn prepare_with<'e>(
         self,
-        sql: &'q str,
+        sql: SqlStr,
         parameters: &'e [<Self::Database as Database>::TypeInfo],
     ) -> futures_core::future::BoxFuture<
         'e,
-        Result<<Self::Database as sqlx::database::Database>::Statement<'q>, sqlx::Error>,
+        Result<<Self::Database as Database>::Statement, sqlx::Error>,
     >
     where
         'c: 'e,
     {
-        self.hasher.update(sql);
+        self.hasher.update(sql.as_str());
         self.conn.borrow_mut().prepare_with(sql, parameters)
     }
 
-    fn describe<'e, 'q: 'e>(
+    fn describe<'e>(
         self,
-        sql: &'q str,
+        sql: SqlStr,
     ) -> futures_core::future::BoxFuture<'e, Result<sqlx::Describe<Self::Database>, sqlx::Error>>
     where
         'c: 'e,
     {
-        self.hasher.update(sql);
+        self.hasher.update(sql.as_str());
         self.conn.borrow_mut().describe(sql)
-    }
-
-    fn execute<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::future::BoxFuture<
-        'e,
-        Result<<Self::Database as Database>::QueryResult, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().execute("");
-        }
-
-        self.conn.borrow_mut().execute(query)
-    }
-
-    fn execute_many<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::stream::BoxStream<
-        'e,
-        Result<<Self::Database as Database>::QueryResult, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().execute_many("");
-        }
-
-        self.conn.borrow_mut().execute_many(query)
-    }
-
-    fn fetch<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::stream::BoxStream<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().fetch("");
-        }
-
-        self.conn.borrow_mut().fetch(query)
-    }
-
-    fn fetch_all<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::future::BoxFuture<
-        'e,
-        Result<Vec<<Self::Database as Database>::Row>, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().fetch_all("");
-        }
-
-        self.conn.borrow_mut().fetch_all(query)
-    }
-
-    fn fetch_one<'e, 'q: 'e, E>(
-        self,
-        query: E,
-    ) -> futures_core::future::BoxFuture<'e, Result<<Self::Database as Database>::Row, sqlx::Error>>
-    where
-        'c: 'e,
-        E: sqlx::Execute<'q, Self::Database> + 'q,
-    {
-        self.hasher.update(query.sql());
-
-        if self.hash_only {
-            return self.conn.borrow_mut().fetch_one("");
-        }
-
-        self.conn.borrow_mut().fetch_one(query)
-    }
-
-    fn prepare<'e, 'q: 'e>(
-        self,
-        query: &'q str,
-    ) -> futures_core::future::BoxFuture<
-        'e,
-        Result<<Self::Database as sqlx::database::Database>::Statement<'q>, sqlx::Error>,
-    >
-    where
-        'c: 'e,
-    {
-        self.hasher.update(query);
-        self.conn.borrow_mut().prepare(query)
     }
 }

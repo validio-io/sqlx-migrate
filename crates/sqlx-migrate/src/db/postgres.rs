@@ -1,14 +1,14 @@
 use std::{borrow::Cow, time::Duration};
 
 use async_trait::async_trait;
-use sqlx::{query, query_as, query_scalar, PgConnection};
+use sqlx::{query, query_as, query_scalar, AssertSqlSafe, PgConnection};
 
 use super::AppliedMigration;
 
 #[async_trait(?Send)]
 impl super::Migrations for sqlx::PgConnection {
     async fn ensure_migrations_table(&mut self, table_name: &str) -> Result<(), sqlx::Error> {
-        query(&format!(
+        query(AssertSqlSafe(format!(
             r"
                 CREATE TABLE IF NOT EXISTS {table_name} (
                     version BIGINT PRIMARY KEY,
@@ -18,7 +18,7 @@ impl super::Migrations for sqlx::PgConnection {
                     execution_time BIGINT NOT NULL
                 );
                 "
-        ))
+        )))
         .execute(self)
         .await?;
 
@@ -61,7 +61,7 @@ impl super::Migrations for sqlx::PgConnection {
         &mut self,
         table_name: &str,
     ) -> Result<Vec<super::AppliedMigration<'static>>, sqlx::Error> {
-        let rows: Vec<(i64, String, Vec<u8>, i64)> = query_as(&format!(
+        let rows: Vec<(i64, String, Vec<u8>, i64)> = query_as(AssertSqlSafe(format!(
             r"
             SELECT
                 version,
@@ -72,7 +72,7 @@ impl super::Migrations for sqlx::PgConnection {
                 {table_name}
             ORDER BY version
             "
-        ))
+        )))
         .fetch_all(self)
         .await?;
 
@@ -92,12 +92,12 @@ impl super::Migrations for sqlx::PgConnection {
         table_name: &str,
         migration: super::AppliedMigration<'static>,
     ) -> Result<(), sqlx::Error> {
-        query(&format!(
+        query(AssertSqlSafe(format!(
             r"
                 INSERT INTO {table_name} ( version, name, checksum, execution_time )
                 VALUES ( $1, $2, $3, $4 )
             "
-        ))
+        )))
         .bind(migration.version as i64)
         .bind(&*migration.name.clone())
         .bind(&*migration.checksum.clone())
@@ -113,7 +113,7 @@ impl super::Migrations for sqlx::PgConnection {
         table_name: &str,
         version: u64,
     ) -> Result<(), sqlx::Error> {
-        query(&format!(r"DELETE FROM {table_name} WHERE version = $1"))
+        query(AssertSqlSafe(format!(r"DELETE FROM {table_name} WHERE version = $1")))
             .bind(version as i64)
             .execute(self)
             .await?;
@@ -122,7 +122,7 @@ impl super::Migrations for sqlx::PgConnection {
     }
 
     async fn clear_migrations(&mut self, table_name: &str) -> Result<(), sqlx::Error> {
-        query(&format!("TRUNCATE {table_name}"))
+        query(AssertSqlSafe(format!("TRUNCATE {table_name}")))
             .execute(self)
             .await?;
         Ok(())
